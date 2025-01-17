@@ -1,0 +1,37 @@
+name: Update Block Height
+
+on:
+  schedule:
+    # runs 4x/hour
+    - cron: "*/15 * * * *"
+  workflow_dispatch: # allows manual triggering
+
+jobs:
+  update-blockheight:
+    runs-on: ubuntu-latest
+
+    steps:
+      # checkout repo
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      # fetch block height from API
+      - name: Get block height
+        run: |
+          curl -s https://mempool.space/api/blocks/tip/height > blockheight.txt
+          jq -n --arg bh "$(cat blockheight.txt)" '{"blockheight": $bh}' > blockheight.json
+
+      # configure git
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      # commit changes if any
+      - name: Commit and Push Changes
+        run: |
+          if ! git diff --quiet; then
+            git add blockheight.json
+            git commit -m "Update block height to $(cat blockheight.txt)"
+            git push
+          fi
